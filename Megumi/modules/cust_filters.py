@@ -182,62 +182,61 @@ def reply_filter(update: Update, context: CallbackContext):
 
     chat_filters = sql.get_chat_triggers(chat.id)
     for keyword in chat_filters:
-        pattern = r"( |^|[^\w])" + keyword + r"( |$|[^\w])"
+        pattern = f"( |^|[^\\w]){keyword}( |$|[^\\w])"
         match = regex_searcher(pattern, to_match)
         if not match:
             #Skip to next item
             continue
-        if match:
-            filt = sql.get_filter(chat.id, keyword)
-            if filt.is_sticker:
-                message.reply_sticker(filt.reply)
-            elif filt.is_document:
-                message.reply_document(filt.reply)
-            elif filt.is_image:
-                message.reply_photo(filt.reply)
-            elif filt.is_audio:
-                message.reply_audio(filt.reply)
-            elif filt.is_voice:
-                message.reply_voice(filt.reply)
-            elif filt.is_video:
-                message.reply_video(filt.reply)
-            elif filt.has_markdown:
-                buttons = sql.get_buttons(chat.id, filt.keyword)
-                keyb = build_keyboard(buttons)
-                keyboard = InlineKeyboardMarkup(keyb)
+        filt = sql.get_filter(chat.id, keyword)
+        if filt.is_sticker:
+            message.reply_sticker(filt.reply)
+        elif filt.is_document:
+            message.reply_document(filt.reply)
+        elif filt.is_image:
+            message.reply_photo(filt.reply)
+        elif filt.is_audio:
+            message.reply_audio(filt.reply)
+        elif filt.is_voice:
+            message.reply_voice(filt.reply)
+        elif filt.is_video:
+            message.reply_video(filt.reply)
+        elif filt.has_markdown:
+            buttons = sql.get_buttons(chat.id, filt.keyword)
+            keyb = build_keyboard(buttons)
+            keyboard = InlineKeyboardMarkup(keyb)
 
-                try:
-                    message.reply_text(
+            try:
+                message.reply_text(
+                    filt.reply,
+                    parse_mode=ParseMode.MARKDOWN,
+                    disable_web_page_preview=True,
+                    reply_markup=keyboard)
+            except BadRequest as excp:
+                if excp.message == "Reply message not found":
+                    bot.send_message(
+                        chat.id,
                         filt.reply,
                         parse_mode=ParseMode.MARKDOWN,
                         disable_web_page_preview=True,
                         reply_markup=keyboard)
-                except BadRequest as excp:
-                    if excp.message == "Unsupported url protocol":
-                        message.reply_text(
-                            "You seem to be trying to use an unsupported url protocol. Telegram "
-                            "doesn't support buttons for some protocols, such as tg://. Please try "
-                            f"again, or ask in {SUPPORT_CHAT} for help.")
-                    elif excp.message == "Reply message not found":
-                        bot.send_message(
-                            chat.id,
-                            filt.reply,
-                            parse_mode=ParseMode.MARKDOWN,
-                            disable_web_page_preview=True,
-                            reply_markup=keyboard)
-                    else:
-                        message.reply_text(
-                            "This note could not be sent, as it is incorrectly formatted. Ask in "
-                            f"{SUPPORT_CHAT} if you can't figure out why!")
-                        LOGGER.warning("Message %s could not be parsed",
-                                       str(filt.reply))
-                        LOGGER.exception("Could not parse filter %s in chat %s",
-                                         str(filt.keyword), str(chat.id))
+                elif excp.message == "Unsupported url protocol":
+                    message.reply_text(
+                        "You seem to be trying to use an unsupported url protocol. Telegram "
+                        "doesn't support buttons for some protocols, such as tg://. Please try "
+                        f"again, or ask in {SUPPORT_CHAT} for help.")
+                else:
+                    message.reply_text(
+                        "This note could not be sent, as it is incorrectly formatted. Ask in "
+                        f"{SUPPORT_CHAT} if you can't figure out why!")
+                    LOGGER.warning("Message %s could not be parsed",
+                                   str(filt.reply))
+                    LOGGER.exception("Could not parse filter %s in chat %s",
+                                     str(filt.keyword), str(chat.id))
 
-            else:
-                # LEGACY - all new filters will have has_markdown set to True.
-                message.reply_text(filt.reply)
-            break
+        else:
+            # LEGACY - all new filters will have has_markdown set to True.
+            message.reply_text(filt.reply)
+        break
 
 
 def __stats__():

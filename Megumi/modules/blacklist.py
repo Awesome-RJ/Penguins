@@ -68,10 +68,8 @@ def add_blacklist(update: Update, context: CallbackContext):
 
     if len(words) > 1:
         text = words[1]
-        to_blacklist = list(
-            set(trigger.strip()
-                for trigger in text.split("\n")
-                if trigger.strip()))
+        to_blacklist = list({trigger.strip() for trigger in text.split("\n")
+                        if trigger.strip()})
 
         for trigger in to_blacklist:
             try:
@@ -111,10 +109,8 @@ def unblacklist(update: Update, context: CallbackContext):
 
     if len(words) > 1:
         text = words[1]
-        to_unblacklist = list(
-            set(trigger.strip()
-                for trigger in text.split("\n")
-                if trigger.strip()))
+        to_unblacklist = list({trigger.strip() for trigger in text.split("\n")
+                        if trigger.strip()})
         successful = 0
 
         for trigger in to_unblacklist:
@@ -163,20 +159,17 @@ def del_blacklist(update: Update, context: CallbackContext):
 
     chat_filters = sql.get_chat_blacklist(chat.id)
     for trigger in chat_filters:
-        pattern = r"( |^|[^\w])" + trigger + r"( |$|[^\w])"
+        pattern = f"( |^|[^\\w]){trigger}( |$|[^\\w])"
         match = regex_searcher(pattern, to_match)
         if not match:
             #Skip to next item in blacklist
             continue
-        if match:
-            try:
-                message.delete()
-            except BadRequest as excp:
-                if excp.message == "Message to delete not found":
-                    pass
-                else:
-                    LOGGER.exception("Error while deleting blacklist message.")
-            break
+        try:
+            message.delete()
+        except BadRequest as excp:
+            if excp.message != "Message to delete not found":
+                LOGGER.exception("Error while deleting blacklist message.")
+        break
 
 
 def __migrate__(old_chat_id, new_chat_id):
